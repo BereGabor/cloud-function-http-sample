@@ -1,12 +1,15 @@
 package com.bere.cloud.functions;
 
 import com.bere.cloud.model.Mail;
+import com.bere.cloud.model.MailTemplate;
 import com.google.api.core.ApiFuture;
 import com.google.api.pathtemplate.ValidationException;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.firestore.DocumentReference;
+import com.google.cloud.firestore.DocumentSnapshot;
 import com.google.cloud.firestore.Firestore;
 import com.google.cloud.firestore.FirestoreOptions;
+import com.google.cloud.firestore.WriteResult;
 import com.google.cloud.functions.HttpFunction;
 import com.google.cloud.functions.HttpRequest;
 import com.google.cloud.functions.HttpResponse;
@@ -36,6 +39,8 @@ public class httpsample implements HttpFunction {
 	private static String projectId="MLFF-SB";
 	private static String topicName="mlff-notifictiona-email";
 	private static String mailCollection="sample-mails";
+	private static String mailTemplateCollection="sample-mail-templates";
+	
 	
     private static Firestore db = null;
 	
@@ -91,6 +96,31 @@ public class httpsample implements HttpFunction {
 	    // [END firestore_setup_client_create]
 	  }
 	  
+	private MailTemplate getMailTemplate(String collection, String templateId) throws Exception{
+	    initFirestore();
+	    DocumentReference docRef = db.collection(collection).document(templateId);
+	 // asynchronously retrieve the document
+	    ApiFuture<DocumentSnapshot> future = docRef.get();
+	    // ...
+	    // future.get() blocks on response
+	    DocumentSnapshot document = future.get();
+	    if (!document.exists())	{
+	    	throw new Exception ("Template not exists templateId:" + templateId);
+	    }
+	    else {
+	    	return document.toObject(MailTemplate.class);
+	    }
+		
+	}
+	
+	private void saveMailTemplate(String collection, String templateId, MailTemplate mailTemplate) throws Exception{
+	    initFirestore();
+	    DocumentReference docRef = db.collection(collection).document(templateId);
+	    ApiFuture<WriteResult> result = docRef.set(mailTemplate);
+	    logger.info("Store MailTemplate success: " + mailTemplate.toString() + "Update time : " + result.get().getUpdateTime() + " id:" + templateId);
+		
+	}
+	  
 	private String storeRequestToFireStore(String collection, JsonObject obj) {
 		String res = "";
 		try {
@@ -112,6 +142,43 @@ public class httpsample implements HttpFunction {
 		
 		return res;
 	}
+	
+	private MailTemplate prepareTemplate(JsonObject request) {
+		MailTemplate template = null;
+		if (request.has("templateId")) {
+			String templateId=request.get("templateId").getAsString();
+    		try {
+    			template = getMailTemplate(mailTemplateCollection, templateId);
+    			logger.info("Template found in collection:" + mailTemplateCollection + " templateId:" + templateId);
+    		}
+    		catch (Exception e) {
+    			logger.warn("Template not found in colleaction, try to save the Request as MailTemplate id: " + templateId, e);
+    			try {
+    				// try to convert request as MailTemaplate and store
+    				template = gson.fromJson(request, MailTemplate.class);
+    			}
+    			catch (Exception e2) {
+    				logger.error("Cant parse request ass MailTemplate" + e2.getMessage(), e);
+    			}
+    			try {
+    				saveMailTemplate(mailTemplateCollection, templateId, template);
+    			}
+    			catch (Exception e2) {
+    				logger.error("Save template failed: " + e, e);
+    			}
+    		}
+		}
+		return template;
+	}
+	
+	public Mail prepareMailFromTemplate(MailTemplate template, JsonObject requestBody) {
+		Mail mail = new Mail( 
+				template.getFrom(), 
+				requestBody.get("to").getAsString(), 
+				template.getSubject(),
+				template.getBody());
+		return mail;
+	}
 
 	
     @Override
@@ -122,9 +189,15 @@ public class httpsample implements HttpFunction {
     		JsonObject body = gson.fromJson(request.getReader(), JsonObject.class);
     		String bodyString = gson.toJson(body);
     		resp += "Json parsed: " + bodyString;
-    		
-    		resp += "\n" + sendMessageToTopic(projectId, topicName, bodyString);
-    		
+    		MailTemplate template = prepareTemplate(body);
+    		if (template != null) {
+    			Mail mail =  prepareMailFromTemplate(template, body);
+    			resp += "\n" + sendMessageToTopic(projectId, topicName, gson.toJson(mail));
+    			
+    		}
+    		else{
+    			resp += "\n" + sendMessageToTopic(projectId, topicName, bodyString);
+    		}
     		resp += "\n" + storeRequestToFireStore(mailCollection, body);
     		
     	}

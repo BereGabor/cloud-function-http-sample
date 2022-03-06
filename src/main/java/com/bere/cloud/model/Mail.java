@@ -1,60 +1,18 @@
 package com.bere.cloud.model;
 
-public class Mail {
+public class Mail extends MailTemplate{
 	
-	private String from;
 	private String to;	
-	private String subject;
-	private String body;
 	
 	public Mail(String from, String to, String subject, String body) {
-		this.setTo(to);
-		this.from = from;
-		this.subject = subject;
-		this.body = body;
+		super(from, subject, body);
+		setTo(to);
 	}
 	
-	public String getFrom() {
-		return from;
-	}
-
-	public void setFrom(String from) {
-		this.from = from;
-	}
-
-	public String getSubject() {
-		return subject;
-	}
-
-	public void setSubject(String subject) {
-		this.subject = subject;
-	}
-
-	public String getBody() {
-		return body;
-	}
-
-	public void setBody(String body) {
-		this.body = body;
+	public Mail() {
+		
 	}
 	
-	@Override
-	public String toString() {
-	    StringBuilder sb = new StringBuilder();
-	    sb.append("Mail( ");
-	    if (from!=null) {
-	    	sb.append("from:" + from);
-	    }
-	    if (subject!=null) {
-	    	sb.append(" subject:" + subject);
-	    }
-	    if (body!=null) {
-	    	sb.append(" body:" + body);
-	    }
-	    sb.append(")");
-	    return sb.toString();
-	}
-
 	public String getTo() {
 		return to;
 	}
@@ -62,5 +20,27 @@ public class Mail {
 	public void setTo(String to) {
 		this.to = to;
 	}
+	
+	@Override
+	public String toString() {
+	    StringBuilder sb = new StringBuilder();
+	    sb.append("Mail( ");
+	    if (getFrom()!=null) {
+	    	sb.append("from:" + getFrom());
+	    }
+	    if (getTo()!=null) {
+	    	sb.append("to:" + getTo());
+	    }
+	    if (getSubject()!=null) {
+	    	sb.append(" subject:" + getSubject());
+	    }
+	    if (getBody()!=null) {
+	    	sb.append(" body:" + getBody());
+	    }
+	    sb.append(")");
+	    return sb.toString();
+	}
+
+
 
 }
