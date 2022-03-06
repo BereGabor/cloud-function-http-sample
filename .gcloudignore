@@ -1,0 +1,6 @@
+*.DS_Store
+.classpath
+.gitignore
+.project
+target
+etc
