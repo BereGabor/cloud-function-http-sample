@@ -16,14 +16,20 @@ import com.google.cloud.functions.HttpResponse;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
+import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
+import java.util.Iterator;
 import java.util.concurrent.ExecutionException;
 
 import org.apache.http.util.ExceptionUtils;
+import org.apache.velocity.VelocityContext;
+import org.apache.velocity.app.Velocity;
+import org.apache.velocity.app.VelocityEngine;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonSyntaxException;
 import com.google.protobuf.ByteString;
@@ -65,6 +71,7 @@ public class httpsample implements HttpFunction {
 	            ProjectTopicName.of(projectId, topicName)).build();
 
 	    	publisher.publish(pubsubApiMessage).get();
+	    	publisher.shutdown();
 	        resp += "\n Message published.";
 	    } catch (InterruptedException | ExecutionException | IOException | ValidationException e) {
 	      logger.error("Error publishing Pub/Sub message: " + e.getMessage(), e);
@@ -121,12 +128,11 @@ public class httpsample implements HttpFunction {
 		
 	}
 	  
-	private String storeRequestToFireStore(String collection, JsonObject obj) {
+	private String storeRequestToFireStore(String collection, Mail mail) {
 		String res = "";
 		try {
 		    initFirestore();
 		    try {
-		    	Mail mail = gson.fromJson(obj, Mail.class);
 		    	ApiFuture<DocumentReference> addedDocRef = db.collection(collection).add(mail);
 		    	logger.info("Store mail in firestore success obj id:" + addedDocRef.get().getId());
 		    }
@@ -177,6 +183,27 @@ public class httpsample implements HttpFunction {
 				requestBody.get("to").getAsString(), 
 				template.getSubject(),
 				template.getBody());
+		if (requestBody.has("params")) {
+			VelocityContext context = new VelocityContext();
+			JsonObject params = requestBody.get("params").getAsJsonObject();
+			Iterator<String> keys = params.keySet().iterator();
+
+			while(keys.hasNext()) {
+			    String key = keys.next();
+			    if (params.get(key) instanceof JsonElement) {
+			      context.put(key, params.get(key));       
+			    }
+			}
+	        StringWriter swOut = new StringWriter();
+	        String templateStr = template.getBody();
+	        
+	        /**
+	         * Merge data and template
+	         */
+	        Velocity.evaluate( context, swOut, "log tag name", templateStr);
+	 		
+			mail.setBody(swOut.toString());
+		}
 		return mail;
 	}
 
@@ -188,17 +215,17 @@ public class httpsample implements HttpFunction {
     	try {
     		JsonObject body = gson.fromJson(request.getReader(), JsonObject.class);
     		String bodyString = gson.toJson(body);
+	    	Mail mail = gson.fromJson(body, Mail.class);
     		resp += "Json parsed: " + bodyString;
     		MailTemplate template = prepareTemplate(body);
     		if (template != null) {
-    			Mail mail =  prepareMailFromTemplate(template, body);
+    			mail =  prepareMailFromTemplate(template, body);
     			resp += "\n" + sendMessageToTopic(projectId, topicName, gson.toJson(mail));
-    			
     		}
     		else{
     			resp += "\n" + sendMessageToTopic(projectId, topicName, bodyString);
     		}
-    		resp += "\n" + storeRequestToFireStore(mailCollection, body);
+    		resp += "\n" + storeRequestToFireStore(mailCollection, mail);
     		
     	}
     	catch (Exception e) {

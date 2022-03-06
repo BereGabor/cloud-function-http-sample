@@ -1,0 +1,9 @@
+{
+    "templateId":"simple-template",
+    "to":"sampler_to@gmail.com",
+    "params":{
+        "name":"Collaegue",
+        "sender_name":"Gabriel"
+    }
+
+}
