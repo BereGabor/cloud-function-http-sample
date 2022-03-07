@@ -1,6 +1,7 @@
 package com.bere.cloud.functions;
 
 import com.bere.cloud.model.Mail;
+import com.bere.cloud.model.MailRequest;
 import com.bere.cloud.model.MailTemplate;
 import com.google.api.core.ApiFuture;
 import com.google.api.pathtemplate.ValidationException;
@@ -21,10 +22,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 import java.util.concurrent.ExecutionException;
 
-import org.apache.http.util.ExceptionUtils;
 import org.apache.velocity.VelocityContext;
 import org.apache.velocity.app.Velocity;
-import org.apache.velocity.app.VelocityEngine;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,7 +42,7 @@ public class httpsample implements HttpFunction {
 	private static final Logger logger = LoggerFactory.getLogger(httpsample.class);
 	private static final Gson gson = new Gson();
 	private static String projectId="MLFF-SB";
-	private static String topicName="mlff-notifictiona-email";
+	private static String topicName="mlff-notification-email";
 	private static String mailCollection="sample-mails";
 	private static String mailTemplateCollection="sample-mail-templates";
 	
@@ -149,10 +148,10 @@ public class httpsample implements HttpFunction {
 		return res;
 	}
 	
-	private MailTemplate prepareTemplate(JsonObject request) {
+	private MailTemplate prepareTemplate(MailRequest request) {
 		MailTemplate template = null;
-		if (request.has("templateId")) {
-			String templateId=request.get("templateId").getAsString();
+		if (request.getTemplateId() != null) {
+			String templateId=request.getTemplateId();
     		try {
     			template = getMailTemplate(mailTemplateCollection, templateId);
     			logger.info("Template found in collection:" + mailTemplateCollection + " templateId:" + templateId);
@@ -160,8 +159,8 @@ public class httpsample implements HttpFunction {
     		catch (Exception e) {
     			logger.warn("Template not found in colleaction, try to save the Request as MailTemplate id: " + templateId, e);
     			try {
-    				// try to convert request as MailTemaplate and store
-    				template = gson.fromJson(request, MailTemplate.class);
+    				// use request as template
+    				template = request;
     			}
     			catch (Exception e2) {
     				logger.error("Cant parse request ass MailTemplate" + e2.getMessage(), e);
@@ -177,15 +176,18 @@ public class httpsample implements HttpFunction {
 		return template;
 	}
 	
-	public Mail prepareMailFromTemplate(MailTemplate template, JsonObject requestBody) {
+	public Mail prepareMailFromTemplate(MailTemplate template, MailRequest request) {
+		// init mail from template
 		Mail mail = new Mail( 
 				template.getFrom(), 
-				requestBody.get("to").getAsString(), 
+				request.getTo(), 
 				template.getSubject(),
 				template.getBody());
-		if (requestBody.has("params")) {
+		
+		// if params exists evaluate body as velocity template text
+		if (request.getParams() != null) {
 			VelocityContext context = new VelocityContext();
-			JsonObject params = requestBody.get("params").getAsJsonObject();
+			JsonObject params = request.getParams();
 			Iterator<String> keys = params.keySet().iterator();
 
 			while(keys.hasNext()) {
@@ -200,7 +202,7 @@ public class httpsample implements HttpFunction {
 	        /**
 	         * Merge data and template
 	         */
-	        Velocity.evaluate( context, swOut, "log tag name", templateStr);
+	        Velocity.evaluate( context, swOut, "Prepare mail body template", templateStr);
 	 		
 			mail.setBody(swOut.toString());
 		}
@@ -213,13 +215,13 @@ public class httpsample implements HttpFunction {
     		throws IOException {
     	String resp = "";
     	try {
-    		JsonObject body = gson.fromJson(request.getReader(), JsonObject.class);
-    		String bodyString = gson.toJson(body);
-	    	Mail mail = gson.fromJson(body, Mail.class);
+    		MailRequest mailRequest = gson.fromJson(request.getReader(), MailRequest.class);
+    		String bodyString = gson.toJson(mailRequest);
+    		Mail mail = mailRequest;
     		resp += "Json parsed: " + bodyString;
-    		MailTemplate template = prepareTemplate(body);
+    		MailTemplate template = prepareTemplate(mailRequest);
     		if (template != null) {
-    			mail =  prepareMailFromTemplate(template, body);
+    			mail =  prepareMailFromTemplate(template, mailRequest);
     			resp += "\n" + sendMessageToTopic(projectId, topicName, gson.toJson(mail));
     		}
     		else{

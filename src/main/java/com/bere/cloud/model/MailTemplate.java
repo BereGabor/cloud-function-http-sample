@@ -2,9 +2,9 @@ package com.bere.cloud.model;
 
 public class MailTemplate {
 	
-	String from;
-	String subject;
-	String body;
+	private String from;
+	private String subject;
+	private String body;
 	
 	public MailTemplate(String from, String subject, String body) {
 		setBody(body);
