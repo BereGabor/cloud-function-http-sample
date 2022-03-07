@@ -53,7 +53,7 @@ The samples json-s is in etc folder!
 {
         "templateId":"simple-template",
         "from":"noreply@test.tk",
-        "to":"bere.gabor@gmail.com",
+        "to":"sample@gmail.com",
         "subject":"Test mail subject",
         "body":"Hello Gábor!\n \n Have a nice day! \n\n Best regards\nBere"
 }
