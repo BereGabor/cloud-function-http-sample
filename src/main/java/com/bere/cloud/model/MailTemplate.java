@@ -46,7 +46,7 @@ public class MailTemplate {
 		sb.append(" from: " + getFrom());
 		sb.append(" subject: " + getSubject());
 		sb.append(" bodyTemplate: " + getBody());
-		return super.toString();
+		return sb.toString();
 	}
 
 }

@@ -47,7 +47,7 @@ public class httpsample implements HttpFunction {
 	private static String mailTemplateCollection="sample-mail-templates";
 	
 	
-    private static Firestore db = null;
+    private Firestore db = null;
 	
 	 
 	private static void testLogger() {
@@ -81,9 +81,13 @@ public class httpsample implements HttpFunction {
 	}
 
 
-	  public static void initFirestore() throws Exception {
+	  public void initFirestore() throws Exception {
 		  if (db != null) {
+			  logger.info("FireStore connection already initialized!");
 			  return;
+		  }
+		  else {
+			  logger.info("Init FireStore connection!");
 		  }
 	    // [START firestore_setup_client_create]
 	    // Option 1: Initialize a Firestore client with a specific `projectId` and
@@ -111,7 +115,8 @@ public class httpsample implements HttpFunction {
 	    // future.get() blocks on response
 	    DocumentSnapshot document = future.get();
 	    if (!document.exists())	{
-	    	throw new Exception ("Template not exists templateId:" + templateId);
+	    	logger.warn("Template not exists templateId:" + templateId);
+	    	return null;
 	    }
 	    else {
 	    	return document.toObject(MailTemplate.class);
@@ -154,23 +159,20 @@ public class httpsample implements HttpFunction {
 			String templateId=request.getTemplateId();
     		try {
     			template = getMailTemplate(mailTemplateCollection, templateId);
+    			if (template == null) {
+    				// use request as template
+    				template = new MailTemplate( request.getFrom(), request.getSubject(), request.getBody());
+        			try {
+        				saveMailTemplate(mailTemplateCollection, templateId, template);
+        			}
+        			catch (Exception e2) {
+        				logger.error("Save template failed: " + e2.getMessage(), e2);
+        			}
+    				
+    			}
     			logger.info("Template found in collection:" + mailTemplateCollection + " templateId:" + templateId);
     		}
     		catch (Exception e) {
-    			logger.warn("Template not found in colleaction, try to save the Request as MailTemplate id: " + templateId, e);
-    			try {
-    				// use request as template
-    				template = request;
-    			}
-    			catch (Exception e2) {
-    				logger.error("Cant parse request ass MailTemplate" + e2.getMessage(), e);
-    			}
-    			try {
-    				saveMailTemplate(mailTemplateCollection, templateId, template);
-    			}
-    			catch (Exception e2) {
-    				logger.error("Save template failed: " + e, e);
-    			}
     		}
 		}
 		return template;
