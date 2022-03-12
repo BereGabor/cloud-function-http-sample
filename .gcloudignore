@@ -4,3 +4,6 @@
 .project
 target
 etc
+.gcloudignore
+.settings
+.git
