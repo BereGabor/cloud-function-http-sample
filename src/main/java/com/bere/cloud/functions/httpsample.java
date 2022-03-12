@@ -3,9 +3,11 @@ package com.bere.cloud.functions;
 import com.bere.cloud.model.Mail;
 import com.bere.cloud.model.MailRequest;
 import com.bere.cloud.model.MailTemplate;
+import com.google.api.client.http.HttpMethods;
 import com.google.api.core.ApiFuture;
 import com.google.api.pathtemplate.ValidationException;
 import com.google.auth.oauth2.GoogleCredentials;
+import com.google.cloud.firestore.CollectionReference;
 import com.google.cloud.firestore.DocumentReference;
 import com.google.cloud.firestore.DocumentSnapshot;
 import com.google.cloud.firestore.Firestore;
@@ -20,6 +22,7 @@ import java.io.IOException;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
+import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 
 import org.apache.velocity.VelocityContext;
@@ -41,15 +44,58 @@ public class httpsample implements HttpFunction {
 	//
 	private static final Logger logger = LoggerFactory.getLogger(httpsample.class);
 	private static final Gson gson = new Gson();
-	private static String projectId="MLFF-SB";
-	private static String topicName="mlff-notification-email";
-	private static String mailCollection="sample-mails";
-	private static String mailTemplateCollection="sample-mail-templates";
+	private static final String projectId="MLFF-SB";
+	private static final String topicName="mlff-notification-email";
+	private static final String mailCollection="sample-mails";
+	private static final String mailTemplateCollection="sample-mail-templates";
+	private static final UUID instanceId = UUID.randomUUID();
 	
+	//global scope clients
+    private static final Firestore db = initFirestore();
+	private static final Publisher publisher = initPubSubPublisher();
+
+	/*
+	public httpsample() {
+		super();
+		try {
+			long start = System.currentTimeMillis();
+			logger.debug("Cold initialization start!");
+			initFirestore();
+			initPubSubPublisher();
+			logger.debug("Cold init duration: " + String.valueOf(System.currentTimeMillis() - start));
+		}
+		catch (Exception e) {
+			logger.error("Cold init failed: " + e.getMessage(), e);
+		}
+		
+	}
+	*/
 	
-    private Firestore db = null;
-	
-	 
+	public static Publisher initPubSubPublisher(){
+		
+		try {
+			long start = System.currentTimeMillis();
+			Publisher pub = Publisher.newBuilder(
+			        ProjectTopicName.of(projectId, topicName)).build();
+		    logger.info("Init Publisher duration: " + String.valueOf(System.currentTimeMillis() - start));
+		    return pub;
+		} catch (IOException e) {
+			logger.error("Error on init Publisher: " + e.getMessage());
+			return null;
+		}	
+	}
+
+
+	  public static Firestore initFirestore() {
+		long start = System.currentTimeMillis();
+	    Firestore db = FirestoreOptions.getDefaultInstance().getService();
+	    logger.info("Init FireStore DB duration: " + String.valueOf(System.currentTimeMillis() - start));
+	    return db;
+	    // [END fs_initialize_project_id]
+	    // [END firestore_setup_client_create_with_project_id]
+	    // [END firestore_setup_client_create]
+	  }
+	  
 	private static void testLogger() {
 		logger.trace("Trace log");
 		logger.debug("Debug log");
@@ -58,62 +104,37 @@ public class httpsample implements HttpFunction {
 		logger.error("Error log");
 	}
 	
-	private String sendMessageToTopic(String projectId, String topicName, String msg) {
+	private String sendMessageToTopic(String projectId, String topicName, String msg) throws IOException {
 		String resp = "";
 		ByteString byteStr = ByteString.copyFrom(msg, StandardCharsets.UTF_8);
 	    PubsubMessage pubsubApiMessage = PubsubMessage.newBuilder().setData(byteStr).build();
 
 
 	    // Attempt to publish the message
-	    try {
-	    	Publisher publisher = Publisher.newBuilder(
-	            ProjectTopicName.of(projectId, topicName)).build();
-
-	    	publisher.publish(pubsubApiMessage).get();
-	    	publisher.shutdown();
-	        resp += "\n Message published.";
-	    } catch (InterruptedException | ExecutionException | IOException | ValidationException e) {
-	      logger.error("Error publishing Pub/Sub message: " + e.getMessage(), e);
-	      resp += "\n Error publishing Pub/Sub message; see logs for more info.";
-	    }
+		long start = System.currentTimeMillis();
+		publisher.publish(pubsubApiMessage);
+        resp += "\n Message published.";
+		logger.debug("Publish message duration: " + String.valueOf(System.currentTimeMillis() - start));
 	    return resp;
 		
 	}
-
-
-	  public void initFirestore() throws Exception {
-		  if (db != null) {
-			  logger.info("FireStore connection already initialized!");
-			  return;
-		  }
-		  else {
-			  logger.info("Init FireStore connection!");
-		  }
-	    // [START firestore_setup_client_create]
-	    // Option 1: Initialize a Firestore client with a specific `projectId` and
-	    //           authorization credential.
-	    // [START fs_initialize_project_id]
-	    // [START firestore_setup_client_create_with_project_id]
-	    FirestoreOptions firestoreOptions =
-	        FirestoreOptions.getDefaultInstance().toBuilder()
-	            .setProjectId(projectId)
-	            .setCredentials(GoogleCredentials.getApplicationDefault())
-	            .build();
-	    //db = firestoreOptions.getService();
-	    db = FirestoreOptions.getDefaultInstance().getService();
-	    // [END fs_initialize_project_id]
-	    // [END firestore_setup_client_create_with_project_id]
-	    // [END firestore_setup_client_create]
-	  }
+	
+	private CollectionReference getCollection(String collection) {
+		long start = System.currentTimeMillis();
+		CollectionReference ref = db.collection(collection);
+		logger.debug("Get collection duration: " + String.valueOf(System.currentTimeMillis() - start));
+		return ref;
+	}
 	  
 	private MailTemplate getMailTemplate(String collection, String templateId) throws Exception{
-	    initFirestore();
-	    DocumentReference docRef = db.collection(collection).document(templateId);
+	    DocumentReference docRef = getCollection(collection).document(templateId);
 	 // asynchronously retrieve the document
 	    ApiFuture<DocumentSnapshot> future = docRef.get();
 	    // ...
 	    // future.get() blocks on response
+		long start = System.currentTimeMillis();
 	    DocumentSnapshot document = future.get();
+		logger.debug("Get document duration: " + String.valueOf(System.currentTimeMillis() - start));
 	    if (!document.exists())	{
 	    	logger.warn("Template not exists templateId:" + templateId);
 	    	return null;
@@ -125,7 +146,6 @@ public class httpsample implements HttpFunction {
 	}
 	
 	private void saveMailTemplate(String collection, String templateId, MailTemplate mailTemplate) throws Exception{
-	    initFirestore();
 	    DocumentReference docRef = db.collection(collection).document(templateId);
 	    ApiFuture<WriteResult> result = docRef.set(mailTemplate);
 	    logger.info("Store MailTemplate success: " + mailTemplate.toString() + "Update time : " + result.get().getUpdateTime() + " id:" + templateId);
@@ -135,10 +155,11 @@ public class httpsample implements HttpFunction {
 	private String storeRequestToFireStore(String collection, Mail mail) {
 		String res = "";
 		try {
-		    initFirestore();
 		    try {
+				long start = System.currentTimeMillis();
 		    	ApiFuture<DocumentReference> addedDocRef = db.collection(collection).add(mail);
 		    	logger.info("Store mail in firestore success obj id:" + addedDocRef.get().getId());
+				logger.debug("Save request to FireStore duration: " + String.valueOf(System.currentTimeMillis() - start));
 		    }
 		    catch (JsonSyntaxException e) {
 				res += "\n Parse to Mail object failed: " +e.getMessage(); 
@@ -158,9 +179,12 @@ public class httpsample implements HttpFunction {
 		if (request.getTemplateId() != null) {
 			String templateId=request.getTemplateId();
     		try {
+    			long start = System.currentTimeMillis();
     			template = getMailTemplate(mailTemplateCollection, templateId);
+    			logger.debug("Get template duration:" + String.valueOf(System.currentTimeMillis() - start));
     			if (template == null) {
     				// use request as template
+    				start = System.currentTimeMillis();
     				template = new MailTemplate( request.getFrom(), request.getSubject(), request.getBody());
         			try {
         				saveMailTemplate(mailTemplateCollection, templateId, template);
@@ -168,11 +192,13 @@ public class httpsample implements HttpFunction {
         			catch (Exception e2) {
         				logger.error("Save template failed: " + e2.getMessage(), e2);
         			}
+        			logger.debug("Save template duration:" + String.valueOf(System.currentTimeMillis() - start));
     				
     			}
     			logger.info("Template found in collection:" + mailTemplateCollection + " templateId:" + templateId);
     		}
     		catch (Exception e) {
+    			logger.error("Exception during prepareTemplate:" + e.getMessage(), e);
     		}
 		}
 		return template;
@@ -215,9 +241,20 @@ public class httpsample implements HttpFunction {
     @Override
     public void service(HttpRequest request, HttpResponse response)
     		throws IOException {
+    	long start = System.currentTimeMillis();
     	String resp = "";
     	try {
     		MailRequest mailRequest = gson.fromJson(request.getReader(), MailRequest.class);
+    		if (request.getMethod() != HttpMethods.POST) {
+    			logger.error("HTTP Methode not supported: " + request.getMethod() + " Use HTTP POST!");
+    			resp = "HTTP Methode not supported: " + request.getMethod();
+    			return;
+    		}
+    		if (mailRequest == null) {
+    			logger.error("Empty request!");
+    			resp = "Empty request!";
+    			return;
+    		}
     		String bodyString = gson.toJson(mailRequest);
     		Mail mail = mailRequest;
     		resp += "Json parsed: " + bodyString;
@@ -236,10 +273,12 @@ public class httpsample implements HttpFunction {
     		logger.error("Can't parse request json: " + e.getMessage(), e);
     		resp += "\n" + "Can't parse request json: " + e.getLocalizedMessage();
     	}
-    	
-    	BufferedWriter writer = response.getWriter();
-        writer.write(resp);
-        
+    	finally {
+    		resp += "\n Service execution: " + String.valueOf(System.currentTimeMillis() - start + "ms");
+    		resp += "\n InstanceId" + instanceId.toString();
+			BufferedWriter writer = response.getWriter();
+		    writer.write(resp);
+    	}
         //testLogger();
         
     }
