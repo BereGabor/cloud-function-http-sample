@@ -86,16 +86,47 @@ public class httpsample implements HttpFunction {
 	}
 
 
-	  public static Firestore initFirestore() {
+	  public static Firestore initFirestore(){
 		long start = System.currentTimeMillis();
-	    Firestore db = FirestoreOptions.getDefaultInstance().getService();
-	    logger.info("Init FireStore DB duration: " + String.valueOf(System.currentTimeMillis() - start));
+		Firestore db = null;
+	    try {
+			FirestoreOptions firestoreOptions =
+			        FirestoreOptions.getDefaultInstance().toBuilder()
+			            .setProjectId(projectId)
+			            .setCredentials(GoogleCredentials.getApplicationDefault()).build();
+			
+		    db = firestoreOptions.getService();
+		    
+		    try {
+				db.document(mailTemplateCollection+"/simple-mail").get().get();
+			} catch (Exception e) {
+				logger.error("Error on get default doc: " + e.getMessage(), e);
+			}
+		    
+		    logger.info("Init FireStore DB duration: " + String.valueOf(System.currentTimeMillis() - start));
+		} catch (IOException e) {
+			logger.error("Error on initialize FireStore db connection: " + e.getMessage(), e);
+		}
 	    return db;
 	    // [END fs_initialize_project_id]
 	    // [END firestore_setup_client_create_with_project_id]
 	    // [END firestore_setup_client_create]
 	  }
 	  
+	private static void listCollectionDocuments(Firestore db, String collection) {
+	    logger.debug("Mail Templates in coillection:" + collection);
+	    try {
+		    for (DocumentReference docRef : db.collection(collection).listDocuments()) {
+		    	logger.debug(docRef.getPath()); 
+				
+			} 
+	    }
+	    catch (Exception e) {
+	    	logger.error("Error on get doc paths:" + e.getMessage());
+	    }
+	}
+	
+	
 	private static void testLogger() {
 		logger.trace("Trace log");
 		logger.debug("Debug log");
