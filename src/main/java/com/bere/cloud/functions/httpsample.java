@@ -90,21 +90,27 @@ public class httpsample implements HttpFunction {
 		long start = System.currentTimeMillis();
 		Firestore db = null;
 	    try {
-			FirestoreOptions firestoreOptions =
+			/*
+	    	FirestoreOptions firestoreOptions =
 			        FirestoreOptions.getDefaultInstance().toBuilder()
 			            .setProjectId(projectId)
 			            .setCredentials(GoogleCredentials.getApplicationDefault()).build();
 			
 		    db = firestoreOptions.getService();
-		    
+		    */
+	    	
+	    	db = FirestoreOptions.getDefaultInstance().getService();
+	    	
+		    /*
 		    try {
 				db.document(mailTemplateCollection+"/simple-mail").get().get();
 			} catch (Exception e) {
 				logger.error("Error on get default doc: " + e.getMessage(), e);
 			}
+		    */
 		    
 		    logger.info("Init FireStore DB duration: " + String.valueOf(System.currentTimeMillis() - start));
-		} catch (IOException e) {
+		} catch (Exception e) {
 			logger.error("Error on initialize FireStore db connection: " + e.getMessage(), e);
 		}
 	    return db;
@@ -143,7 +149,11 @@ public class httpsample implements HttpFunction {
 
 	    // Attempt to publish the message
 		long start = System.currentTimeMillis();
-		publisher.publish(pubsubApiMessage);
+		try {
+			publisher.publish(pubsubApiMessage);
+		} catch (Exception e) {
+			logger.error("Send message failed " + e.getMessage(), e);
+		}
         resp += "\n Message published.";
 		logger.debug("Publish message duration: " + String.valueOf(System.currentTimeMillis() - start));
 	    return resp;
