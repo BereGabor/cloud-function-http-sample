@@ -5,6 +5,7 @@ import com.bere.cloud.model.MailRequest;
 import com.bere.cloud.model.MailTemplate;
 import com.google.api.client.http.HttpMethods;
 import com.google.api.core.ApiFuture;
+import com.google.api.gax.core.GoogleCredentialsProvider;
 import com.google.api.pathtemplate.ValidationException;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.firestore.CollectionReference;
@@ -18,6 +19,8 @@ import com.google.cloud.functions.HttpRequest;
 import com.google.cloud.functions.HttpResponse;
 
 import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
@@ -44,7 +47,7 @@ public class httpsample implements HttpFunction {
 	//
 	private static final Logger logger = LoggerFactory.getLogger(httpsample.class);
 	private static final Gson gson = new Gson();
-	private static final String projectId="MLFF-SB";
+	private static final String projectId="mlff-sb";
 	private static final String topicName="mlff-notification-email";
 	private static final String mailCollection="sample-mails";
 	private static final String mailTemplateCollection="sample-mail-templates";
@@ -90,17 +93,27 @@ public class httpsample implements HttpFunction {
 		long start = System.currentTimeMillis();
 		Firestore db = null;
 	    try {
-			/*
-	    	FirestoreOptions firestoreOptions =
-			        FirestoreOptions.getDefaultInstance().toBuilder()
-			            .setProjectId(projectId)
-			            .setCredentials(GoogleCredentials.getApplicationDefault()).build();
-			
-		    db = firestoreOptions.getService();
-		    */
-	    	
-	    	db = FirestoreOptions.getDefaultInstance().getService();
-	    	
+	    	File f = new File("/secrets/NotificationModule");
+	    	if (f.exists()) {
+	    		logger.info("Secret is found! Length: " + String.valueOf(f.length()));
+	    		FileInputStream input = new FileInputStream(f);
+		    	GoogleCredentials cred = GoogleCredentials.fromStream(input);
+		    	FirestoreOptions firestoreOptions =
+				        FirestoreOptions.getDefaultInstance().toBuilder()
+				            .setProjectId(projectId)
+				            .setCredentials(cred).build();
+		    	
+			    db = firestoreOptions.getService();
+			    try {
+					db.document(mailTemplateCollection+"/simple-mail").get().get();
+				} catch (Exception e) {
+					logger.error("Error on get default doc: " + e.getMessage(), e);
+				}
+			    listCollectionDocuments(db, mailTemplateCollection);
+	    	}
+	    	else {	    	
+	    		db = FirestoreOptions.getDefaultInstance().getService();
+	    	}
 		    /*
 		    try {
 				db.document(mailTemplateCollection+"/simple-mail").get().get();
@@ -150,7 +163,8 @@ public class httpsample implements HttpFunction {
 	    // Attempt to publish the message
 		long start = System.currentTimeMillis();
 		try {
-			publisher.publish(pubsubApiMessage);
+			String resultMsg = publisher.publish(pubsubApiMessage).get();
+			logger.debug("Sent messge result: " + resultMsg);
 		} catch (Exception e) {
 			logger.error("Send message failed " + e.getMessage(), e);
 		}
