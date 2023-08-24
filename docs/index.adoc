@@ -1,0 +1,8 @@
+= cloud-function-http-sample
+
+HTTP Cloud function sample. The sample gets a JSON and tries to send it to pub/sub, and store it in FireStore.
+
+== Contents:
+* link:http_trigger.adoc[This Google Cloud Function with HTTP Trigger]
+* link:sample_logic.adoc[Sample Logic]
+* link:samples.adoc[Samples]

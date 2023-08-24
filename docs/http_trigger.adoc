@@ -1,0 +1,9 @@
+= This Google Cloud Function with HTTP Trigger
+
+You will find samples in this Java code for:
+* Java-based Cloud Function with HTTP trigger
+* Deploy script with gcloud cli
+* Cloud logging config. Logs will be sent to cloud logger directly!
+* Publish message to a pub/sub topic
+* Store message/document in FireStore database/collection
+* Read Entity/Object from FireStore collection

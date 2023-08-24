@@ -1,0 +1,19 @@
+= Sample logic
+
+This HTTP sample waits for a JSON in the request body, as MailRequest model.
+
+MailRequest model extends Mail which extends MailTemplate.
+
+If the templateId is filled in request:
+* Try to load MailTemplate from FireStore
+** If MailTemplate found in firestore, it will be used to prepare Mail structure.
+** If MailTemplate is not found, we will store the MailRequest as MailTemplate and this will be used to prepare Mail structure! The next call will find the template in FireStore collection.
+
+* Prepare Mail based on MailTemplate
+** If a params object exists in MailRequest, the mail body will be evaluated as a velocity template and params fields will be used for it.
+
+After the Mail object is prepared, we can send it to the topic.
+
+The pub/sub topic waits for a Mail structured JSON!
+
+On this topic, there is a Python-based cloud function that will send the mail exactly.

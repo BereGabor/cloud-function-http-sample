@@ -1,0 +1,41 @@
+= Samples
+
+The sample JSONs are in the etc folder!
+
+_Send mail without template handling_
+
+[source,json]
+----
+{
+        "to":"sample@gmail.com",
+        "subject":"Test mail subject",
+        "body":"Hello Gábor!\n \n Have a nice day! \n\n Best regards\nBere"
+}
+----
+
+_Send mail with template, and save template if it does not exist_
+
+[source,json]
+----
+{
+        "templateId":"simple-template",
+        "from":"noreply@test.tk",
+        "to":"sample@gmail.com",
+        "subject":"Test mail subject",
+        "body":"Hello Gábor!\n \n Have a nice day! \n\n Best regards\nBere"
+}
+----
+
+_Send mail using a template saved before_
+
+[source,json]
+----
+{
+    "templateId":"simple-template",
+    "to":"sampler_to@gmail.com",
+    "params":{
+        "name":"Colleague",
+        "sender_name":"Gabriel"
+    }
+}
+----
