@@ -1,0 +1,3 @@
+* xref:http_trigger.adoc[This Google Cloud Function with HTTP Trigger]
+* xref:sample_logic.adoc[Sample Logic]
+* xref:samples.adoc[Samples]
