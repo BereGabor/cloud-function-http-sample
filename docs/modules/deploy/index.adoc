@@ -1,0 +1,17 @@
+= Deploy cloud function
+
+The GCP Cloud function is built on the GCP automatically after you deploy it. So you have to deploy the source code to GCP.
+The deploy script containt 2 significant command. 
+1. Zip the source code.
+2. Call the gcloud functions deploy command with a lot of parameyers :)
+
+== Deploy script
+The deploy script (deploy.sh) is in the repository root.
+
+[deploy.sh,shell]
+--
+gcloud functions deploy  cloud-http-java-sample-deploytest --region=europe-west1 --ingress-settings=all --memory=256MB --service-account=notification-module-sa@mlff-sb.iam.gserviceaccount.com   --entry-point=com.bere.cloud.functions.httpsample --runtime=java11 --trigger-http --allow-unauthenticated --project=mlff-sb --max-instances=1000 --min-instances=3 --set-secrets=/secrets/NotificationModule=NotificationModule:latest
+
+--
+
+The script in the deploy.sh and in the source block above is just sample! Not for production use!!!
