@@ -1,5 +1,5 @@
 name: http-cloudfunction-sample
 title: HTTP Cloud Function Sample
-version: '0.1'
+version: '0.2'
 nav:
   - modules/ROOT/nav.adoc
