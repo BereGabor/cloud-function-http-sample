@@ -1,4 +1,4 @@
-= cloud-function-http-sample
+= cloud-function-http-sample {page-component-version}
 
 HTTP Cloud function sample. The sample gets a JSON and tries to send it to pub/sub, and store it in FireStore.
 
